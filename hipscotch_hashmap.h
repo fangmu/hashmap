@@ -55,7 +55,7 @@ class HipscotchHashMap : public HashMap {
     std::string Dummy();
 
   private:
-    bool FindAndSwap(const uint32_t init_index, uint32_t& distance);
+    bool FindEmptyBucketAndSwap(const uint32_t init_index, uint32_t& distance);
 
   private:
     uint32_t bucket_num_;

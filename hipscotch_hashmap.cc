@@ -88,85 +88,86 @@ bool HipscotchHashMap::Get(const string& key, string& value) {
 bool HipscotchHashMap::Put(const string& key, const string& value) {
   uint32_t hash = hash_fun_(key);
   uint32_t init_index = hash % bucket_num_;
+  uint32_t empty_index = bucket_num_;
 
-  if (bucket_[init_index].entry_.data_ == NULL) {
-    bucket_[init_index].entry_.key_size_ = key.size();
-    bucket_[init_index].entry_.value_size_ = value.size();
-    bucket_[init_index].entry_.data_ = new char[key.size() + value.size()];
-    strncpy(bucket_[init_index].entry_.data_,              key.c_str(), key.size());
-    strncpy(bucket_[init_index].entry_.data_ + key.size(), value.c_str(), value.size());
-    bucket_[init_index].hash_ = hash;
-    bucket_[init_index].bitmap_ |= 1;
+  if (FindEmptyBucketAndSwap(init_index, empty_index)) {
+    bucket_[empty_index].entry_.key_size_ = key.size();
+    bucket_[empty_index].entry_.value_size_ = value.size();
+    bucket_[empty_index].entry_.data_ = new char[key.size() + value.size()];
+
+    strncpy(bucket_[empty_index].entry_.data_,              key.c_str(),   key.size());
+    strncpy(bucket_[empty_index].entry_.data_ + key.size(), value.c_str(), value.size());
+
+    bucket_[empty_index].hash_ = hash;
+    if (empty_index > init_index) {
+      bucket_[init_index].bitmap_ |= 1 << (empty_index - init_index); 
+    } else {
+      bucket_[init_index].bitmap_ |= 1 << (empty_index + bucket_num_ - init_index);
+    }
     size_++;
     return true;
   }
+  
+  return false;
+}
 
-  bool found = false;
-  uint32_t distance = 1;
-  for (; distance < max_probe_; ++distance) {
-    Bucket& bucket = bucket_[(init_index + distance) % bucket_num_]; 
+bool HipscotchHashMap::FindEmptyBucketAndSwap(const uint32_t init_index, uint32_t& empty_index) {
+  bool found_empty = false; 
+  uint32_t current_v_index = 0;
+  for (uint32_t i = 0; i < max_probe_; ++i) {
+    current_v_index = init_index + i;
+    Bucket& bucket = bucket_[current_v_index % bucket_num_]; 
     if (bucket.entry_.data_ == NULL) {
-      found = true;    
+      found_empty = true;    
       break;
     }
   }
 
-  if (found) {
-    do {
-      if (distance < scotch_size_) {
-        uint32_t insert_index = (init_index + distance) % bucket_num_;
-        bucket_[insert_index].entry_.key_size_ = key.size();
-        bucket_[insert_index].entry_.value_size_ = value.size();
-        bucket_[insert_index].entry_.data_ = new char[key.size() + value.size()];
-        strncpy(bucket_[insert_index].entry_.data_,              key.c_str(),   key.size());
-        strncpy(bucket_[insert_index].entry_.data_ + key.size(), value.c_str(), value.size());
-        bucket_[insert_index].hash_ = hash;
-        bucket_[init_index].bitmap_ |= 1 << distance; 
-        size_++;
-        return true;
-      }
-    } while (FindAndSwap(init_index, distance));
+  if (!found_empty) {
+    return false;
   }
 
-  return false;
-}
+  bool found_swap = true;
+  while ((current_v_index - init_index) > (scotch_size_ - 1)) {
+    for (uint32_t try_v_index = current_v_index - scotch_size_ + 1; try_v_index < current_v_index; ++try_v_index) {
+      if ((bucket_[try_v_index % bucket_num_].bitmap_ & scotch_mask_) == 0) {
+        continue;
+      }
 
-bool HipscotchHashMap::FindAndSwap(const uint32_t init_index, uint32_t& distance) {
-  
-  for (uint32_t try_distance = distance - scotch_size_ + 1 ; try_distance < distance; ++try_distance) {
-    Bucket& try_bucket = bucket_[(init_index + try_distance) % bucket_num_];
-    if ((try_bucket.bitmap_ & scotch_mask_) == 0) {
-      continue;
-    }
+      found_swap = false;
+      uint32_t swap_v_index = 0;
+      for (uint32_t i = 0; i < (scotch_size_ -1) && (try_v_index + i) < current_v_index; ++i) {
+        if ((bucket_[try_v_index % bucket_num_].bitmap_ & (1 << i)) != 0) {
+          found_swap = true;
+          swap_v_index = try_v_index + i;
+          break;
+        }
+      }
 
-    bool found = false;
-    uint32_t swap_distance = 0;
-    for (uint32_t j = 0; j < (scotch_size_ - 1) && (try_distance+j) < distance; ++j) {
-      if ((try_bucket.bitmap_ & (1 << j)) != 0) {
-        found = true;
-        swap_distance = j;
+      if (found_swap) {
+        Bucket& current_bucket = bucket_[current_v_index % bucket_num_];
+        Bucket& swap_bucket = bucket_[swap_v_index % bucket_num_];
+
+        Entry tmp_entry = current_bucket.entry_;
+        current_bucket.entry_ = swap_bucket.entry_;
+        swap_bucket.entry_ = tmp_entry;
+
+        current_bucket.hash_ = swap_bucket.hash_;
+
+        swap_bucket.bitmap_ &= (~(1 << (swap_v_index - try_v_index)));
+        swap_bucket.bitmap_ |= (1 << (current_v_index - try_v_index));
+        
+        current_v_index = swap_v_index;
         break;
       }
     }
+  }
 
-    if (found) {
-      uint32_t new_distance = try_distance + swap_distance;
-      Bucket& swap_bucket = bucket_[(init_index + new_distance) % bucket_num_];
-      Bucket& empty_bucket = bucket_[(init_index + distance) % bucket_num_];
-
-      Entry tmp = swap_bucket.entry_;
-
-      swap_bucket.entry_ = empty_bucket.entry_;
-
-      empty_bucket.entry_ = tmp;
-      empty_bucket.hash_ = swap_bucket.hash_;
-
-      try_bucket.bitmap_ &=  (~(1 << swap_distance));
-      try_bucket.bitmap_ |=  ((1 << (distance - try_distance)));
-      distance = new_distance ;
-      return true;
-    }
-  } 
+  if (found_swap) {
+    empty_index = current_v_index % bucket_num_;
+    return true;
+  }
+  
   return false;
 }
 
