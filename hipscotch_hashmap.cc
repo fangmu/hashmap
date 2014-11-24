@@ -190,6 +190,7 @@ bool HipscotchHashMap::Remove(const string& key) {
       current_bucket.entry_.key_size_ = 0;
       current_bucket.entry_.value_size_ = 0;
       delete[] current_bucket.entry_.data_;
+      current_bucket.entry_.data_ = NULL;
       init_bucket.bitmap_ &= (~(1 << i));
       size_--;
 

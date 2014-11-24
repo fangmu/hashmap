@@ -46,6 +46,18 @@ int main(int argc, const char *argv[]) {
       cout << hash_map->Dummy();
       return -1;
     }
+
+    if (!hash_map->Remove(key)) {
+      cout << i << "Remove error. Key: " << key << endl;
+      cout << hash_map->Dummy();
+      return -1;
+    }
+
+    if (hash_map->Get(key, value_dummy)) {
+      cout << i << "Get after Remove fail. Key: " << key << endl;
+      cout << hash_map->Dummy();
+      return -1;
+    }
   }
 
   cout << hash_map->Dummy();
