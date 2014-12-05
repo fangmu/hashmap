@@ -22,11 +22,12 @@ class HipscotchHashMap : public HashMap {
   struct Bucket {
     Bucket() {
       bitmap_ = 0;
+      entry_ = NULL;
     }
 
     uint32_t bitmap_;
     uint32_t hash_;
-    Entry entry_;
+    Entry* entry_;
   };
 
   public:
@@ -44,8 +45,8 @@ class HipscotchHashMap : public HashMap {
     typedef uint32_t (*HashFunPtr)(const std::string& str);
 
   public:
-    bool Put(const std::string& key, const std::string& value);
     bool Get(const std::string& key, std::string& value);
+    bool Put(const std::string& key, const std::string& value);
     bool Remove(const std::string& key);
 
     uint32_t Size() const {return size_;}

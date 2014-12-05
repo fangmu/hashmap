@@ -50,12 +50,16 @@ HipscotchHashMap::HipscotchHashMap(uint32_t init_num, uint32_t scotch_size, uint
 HipscotchHashMap::~HipscotchHashMap() {
   if (bucket_ != NULL) {
     for (uint32_t i = 0; i < bucket_num_; ++i) {
-      if (bucket_->entry_.data_ == NULL) {
-        delete[] bucket_->entry_.data_;
+      if (bucket_[i].entry_ != NULL) {
+        if (bucket_[i].entry_->data_  != NULL) {
+          delete[] bucket_[i].entry_->data_;
+        }
+        delete bucket_[i].entry_;
       }
     }
     delete[] bucket_;
     bucket_ = NULL;
+    bucket_num_ = 0;
   }
 }
 
@@ -73,12 +77,13 @@ bool HipscotchHashMap::Get(const string& key, string& value) {
     }
 
     Bucket& current_bucket = bucket_[(hash + i) % bucket_num_];
-    if (current_bucket.hash_ == hash &&
-        current_bucket.entry_.key_size_ == key.size() &&
-        strncmp(current_bucket.entry_.data_, key.c_str(), key.size()) == 0) {
+    if (current_bucket.hash_ == hash && 
+        current_bucket.entry_ != NULL &&
+        current_bucket.entry_->key_size_ == key.size() &&
+        strncmp(current_bucket.entry_->data_, key.c_str(), key.size()) == 0) {
 
-      value.assign(current_bucket.entry_.data_ + current_bucket.entry_.key_size_, 
-                   current_bucket.entry_.value_size_);
+      value.assign(current_bucket.entry_->data_ + current_bucket.entry_->key_size_, 
+                   current_bucket.entry_->value_size_);
       return true;
     }
   }
@@ -91,13 +96,15 @@ bool HipscotchHashMap::Put(const string& key, const string& value) {
   uint32_t empty_index = bucket_num_;
 
   if (FindEmptyBucketAndSwap(init_index, empty_index)) {
-    bucket_[empty_index].entry_.key_size_ = key.size();
-    bucket_[empty_index].entry_.value_size_ = value.size();
-    bucket_[empty_index].entry_.data_ = new char[key.size() + value.size()];
+    Entry* entry = new Entry();
+    entry->key_size_ = key.size();
+    entry->value_size_ = value.size();
+    entry->data_ = new char[key.size() + value.size()];
 
-    strncpy(bucket_[empty_index].entry_.data_,              key.c_str(),   key.size());
-    strncpy(bucket_[empty_index].entry_.data_ + key.size(), value.c_str(), value.size());
+    strncpy(entry->data_,              key.c_str(),   key.size());
+    strncpy(entry->data_ + key.size(), value.c_str(), value.size());
 
+    bucket_[empty_index].entry_ = entry;
     bucket_[empty_index].hash_ = hash;
     if (empty_index > init_index) {
       bucket_[init_index].bitmap_ |= 1 << (empty_index - init_index); 
@@ -117,7 +124,7 @@ bool HipscotchHashMap::FindEmptyBucketAndSwap(const uint32_t init_index, uint32_
   for (uint32_t i = 0; i < max_probe_; ++i) {
     current_v_index = init_index + i;
     Bucket& bucket = bucket_[current_v_index % bucket_num_]; 
-    if (bucket.entry_.data_ == NULL) {
+    if (bucket.entry_ == NULL) {
       found_empty = true;    
       break;
     }
@@ -148,11 +155,10 @@ bool HipscotchHashMap::FindEmptyBucketAndSwap(const uint32_t init_index, uint32_
         Bucket& current_bucket = bucket_[current_v_index % bucket_num_];
         Bucket& swap_bucket = bucket_[swap_v_index % bucket_num_];
 
-        Entry tmp_entry = current_bucket.entry_;
         current_bucket.entry_ = swap_bucket.entry_;
-        swap_bucket.entry_ = tmp_entry;
-
         current_bucket.hash_ = swap_bucket.hash_;
+
+        swap_bucket.entry_ = NULL;
 
         swap_bucket.bitmap_ &= (~(1 << (swap_v_index - try_v_index)));
         swap_bucket.bitmap_ |= (1 << (current_v_index - try_v_index));
@@ -184,14 +190,14 @@ bool HipscotchHashMap::Remove(const string& key) {
       continue;
     }
     Bucket& current_bucket = bucket_[(hash + i) % bucket_num_];
-    if (current_bucket.hash_ == hash && current_bucket.entry_.data_ != NULL &&
-        current_bucket.entry_.key_size_ == key.size() &&
-        strncmp(current_bucket.entry_.data_, key.c_str(), key.size()) == 0) {
+    if (current_bucket.hash_ == hash &&
+        current_bucket.entry_ != NULL &&
+        current_bucket.entry_->key_size_ == key.size() &&
+        strncmp(current_bucket.entry_->data_, key.c_str(), key.size()) == 0) {
 
-      current_bucket.entry_.key_size_ = 0;
-      current_bucket.entry_.value_size_ = 0;
-      delete[] current_bucket.entry_.data_;
-      current_bucket.entry_.data_ = NULL;
+      delete[] current_bucket.entry_->data_;
+      delete current_bucket.entry_;
+      current_bucket.entry_ = NULL;
       init_bucket.bitmap_ &= (~(1 << i));
       size_--;
 
@@ -204,13 +210,13 @@ bool HipscotchHashMap::Remove(const string& key) {
 string HipscotchHashMap::Dummy() {
   stringstream ss;  
   for (uint32_t i = 0; i < bucket_num_; ++i) {
-    if (bucket_[i].entry_.data_ != NULL) {
+    if (bucket_[i].entry_ != NULL) {
       bitset<32> bitmap(bucket_[i].bitmap_);
       ss << i << " bucket."
         << " hash: " << (bucket_[i].hash_ % bucket_num_)
         << " bitmap:" << bitmap 
-        << " key: " << string(bucket_[i].entry_.data_, bucket_[i].entry_.key_size_) 
-        << " value: " << string(bucket_[i].entry_.data_+bucket_[i].entry_.key_size_, bucket_[i].entry_.value_size_)
+        << " key: " << string(bucket_[i].entry_->data_, bucket_[i].entry_->key_size_) 
+        << " value: " << string(bucket_[i].entry_->data_+bucket_[i].entry_->key_size_, bucket_[i].entry_->value_size_)
         << endl;
     }
   }
