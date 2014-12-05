@@ -31,7 +31,7 @@ int main(int argc, const char *argv[]) {
       return -1;
     }
 
-    if (!hash_map->Put(key, key)) {
+    if (!hash_map->Put(key, key+ToString(-i))) {
       cout << i << "Put error. Key: " << key << endl;
       cout << hash_map->Dummy();
       return -1;
@@ -39,11 +39,6 @@ int main(int argc, const char *argv[]) {
 
     if (!hash_map->Get(key, value_dummy)) {
       cout << i << "Second Get error. Key: " << key << endl;
-      cout << hash_map->Dummy();
-      return -1;
-    }
-    if (value_dummy != key) {
-      cout << i << "Get value error. Key: " << key << endl;
       cout << hash_map->Dummy();
       return -1;
     }
@@ -60,6 +55,26 @@ int main(int argc, const char *argv[]) {
     //  return -1;
     //}
   }
+
+  int j = 0;
+  for (std::set<std::string>::iterator it = keys.begin(); it != keys.end(); ++it, ++j) {
+    if (!hash_map->Get(*it, value_dummy)) {
+      cout << j << "Third Get value error. Key: " << *it << endl;
+      cout << hash_map->Dummy();
+      return -1;
+    }
+    if (!hash_map->Remove(*it)) {
+      cout << j << "Remove error. Key: " << *it << endl;
+      cout << hash_map->Dummy();
+      return -1;
+    }
+
+    if (hash_map->Get(*it, value_dummy)) {
+      cout << j << "Get after Remove success. Key: " << *it << endl;
+      cout << hash_map->Dummy();
+      return -1;
+    }
+  } 
 
   cout << hash_map->Dummy();
 

@@ -55,6 +55,7 @@ class RobinhoodHashMap : public HashMap {
   private:
     bool PutBucket(Bucket& bucket, uint32_t cur_dib, uint32_t cur_idx);
     Entry* NewEntry(const std::string& key, const std::string& value);
+    void ShiftEmptyBucketBack(uint32_t empty_idx);
 
   private:
     uint32_t bucket_num_;
