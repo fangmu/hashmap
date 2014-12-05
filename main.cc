@@ -1,4 +1,5 @@
 #include "hipscotch_hashmap.h"
+#include "robinhood_hashmap.h"
 #include <stdlib.h>
 #include <iostream>
 #include <sstream>
@@ -14,7 +15,7 @@ string ToString(int num) {
 }
 
 int main(int argc, const char *argv[]) {
-  HashMap* hash_map = new HipscotchHashMap(4000);
+  HashMap* hash_map = new RobinhoodHashMap(4000);
   set<string> keys;
   string value_dummy;
 

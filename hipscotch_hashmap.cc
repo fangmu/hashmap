@@ -80,7 +80,7 @@ bool HipscotchHashMap::Get(const string& key, string& value) {
     if (current_bucket.hash_ == hash && 
         current_bucket.entry_ != NULL &&
         current_bucket.entry_->key_size_ == key.size() &&
-        strncmp(current_bucket.entry_->data_, key.c_str(), key.size()) == 0) {
+        memcmp(current_bucket.entry_->data_, key.c_str(), key.size()) == 0) {
 
       value.assign(current_bucket.entry_->data_ + current_bucket.entry_->key_size_, 
                    current_bucket.entry_->value_size_);

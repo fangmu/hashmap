@@ -38,7 +38,7 @@ class HipscotchHashMap : public HashMap {
     ~HipscotchHashMap();
 
   public:
-    static const uint32_t DEFAULT_BUCKET_NUMBER = 4;
+    static const uint32_t DEFAULT_BUCKET_NUMBER = 64;
     static const uint32_t DEFAULT_SCOTCH_SIZE = 32;
     static const uint32_t DEFAULT_MAX_PROBE = 64;
 
